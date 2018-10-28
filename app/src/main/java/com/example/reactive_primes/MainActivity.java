@@ -16,10 +16,8 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.function.Consumer;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -27,9 +25,8 @@ import butterknife.OnClick;
 import durdinapps.rxfirebase2.RxFirebaseDatabase;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
-import io.reactivex.disposables.Disposable;
-import rx.functions.Action1;
-import rx.subjects.PublishSubject;
+import io.reactivex.functions.Consumer;
+import io.reactivex.subjects.ReplaySubject;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -117,24 +114,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public Consumer<HashMap<Long, Long>> reactivePrimes() {
-        PublishSubject<Spectre> topping = PublishSubject.create();
+        ReplaySubject<Spectre> topping = ReplaySubject.create();
         long range = Long.parseLong(this.range.getText().toString());
-        Observable<Integer> dRange = Observable.range(2, (int) range).flatMap(i -> {
-            Observable<Long> top = getTopping(i);
-            return top;
-        }).map(data -> {
-            Log.d("LOG", data.toString());
-            return data.longValue();
+        Observable<Integer> dRange = Observable.range(2, (int) range);
+        dRange.subscribe(index -> {
+            Log.d("LOG", "" + index);
+            getTopping(index).map(data -> {
+                return new Spectre(Long.parseLong(data.getKey()), (HashMap<String, Long>) data.getValue());
+            }).defaultIfEmpty(new Spectre(index, null)).subscribe(data -> {
+//                topping.onNext(new Spectre(index));
+                topping.onNext(data);
+            });
         });
         topping.subscribe(spectre -> {
-            Log.d("LOG", spectre.toString());
+            Log.d("LOG", spectre == null ? "" : spectre.toString());
         });
         dRange.subscribe();
         topping.publish();
         return null;
     }
 
-    private Observable getTopping(long key) {
+    private Observable<DataSnapshot> getTopping(long key) {
         DatabaseReference ref = FirebaseDatabase.getInstance().getReference().child("toppings").child(Long.toString(key)).getRef();
         Observable<DataSnapshot> result = RxFirebaseDatabase.observeSingleValueEvent(ref).toObservable();
         return result.map(data -> {
