@@ -25,6 +25,7 @@ import butterknife.OnClick;
 import durdinapps.rxfirebase2.RxFirebaseDatabase;
 import io.reactivex.Completable;
 import io.reactivex.Observable;
+import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.subjects.ReplaySubject;
 
@@ -115,22 +116,27 @@ public class MainActivity extends AppCompatActivity {
 
     public Consumer<HashMap<Long, Long>> reactivePrimes() {
         ReplaySubject<Spectre> topping = ReplaySubject.create();
-        long range = Long.parseLong(this.range.getText().toString());
-        Observable<Integer> dRange = Observable.range(2, (int) range);
-        dRange.subscribe(index -> {
-            Log.d("LOG", "" + index);
-            getTopping(index).map(data -> {
-                return new Spectre(Long.parseLong(data.getKey()), (HashMap<String, Long>) data.getValue());
-            }).defaultIfEmpty(new Spectre(index, null)).subscribe(data -> {
-//                topping.onNext(new Spectre(index));
-                topping.onNext(data);
-            });
+        ReplaySubject<Spectre> t1 = ReplaySubject.create();
+        ReplaySubject<Spectre> t2 = ReplaySubject.create();
+        ReplaySubject<Spectre> t11 = ReplaySubject.create();
+        ReplaySubject<Spectre> t21 = ReplaySubject.create();
+        topping.subscribe(data -> {
+            t1.onNext(data);
+            t2.onNext(data);
         });
-        topping.subscribe(spectre -> {
-            Log.d("LOG", spectre == null ? "" : spectre.toString());
+        t1.subscribe(data -> {
+            t11.onNext(data);
         });
-        dRange.subscribe();
-        topping.publish();
+        t2.subscribe(data -> {
+            t21.onNext(data);
+        });
+        Observable<Spectre> result = Observable.zip(t11, t21, (spectre1, spectre2) -> spectre1);
+        result.subscribe(data -> {
+            Log.d("RESULT", data.toString());
+        });
+        Observable.range(0, 100).subscribe(index -> {
+            topping.onNext(new Spectre(index));
+        });
         return null;
     }
 
